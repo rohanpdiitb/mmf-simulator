@@ -1,4 +1,4 @@
-import fiber2
+import fiber
 import utils
 import numpy
 import scipy
@@ -37,8 +37,8 @@ M= len(admissible_modes)
 theta_list = numpy.random.randn(n_sections)
 theta_vals = sigma_theta*theta_list
 def lossy_propagation(i):
-    test_fiber = fiber2.GHModes(w, XX, YY, theta =0.0)
-    test_fiber1 = fiber2.GHModes(w,XX, YY, theta = theta_vals[i],offset_x = offset_x[i],offset_y = offset_y[i])
+    test_fiber = fiber.GHModes(w, XX, YY, theta =0.0)
+    test_fiber1 = fiber.GHModes(w,XX, YY, theta = theta_vals[i],offset_x = offset_x[i],offset_y = offset_y[i])
     #print "M1"
     #print M1
     E = []

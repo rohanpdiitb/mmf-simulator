@@ -255,27 +255,35 @@ class LargeCoreMMF(Fiber):
     fiber_attributes = ["NA", "wavelength", "a", "n0", "Csk0",
         "delta", "DELTA", "sqrt", "w", "EXTENTS", "STEP", "sigma_kappa", "sigma_theta"]
 
-    fiber_internals = ["admissible_modes", "betas"]
+    fiber_internals = ["admissible_modes", "betas1", "betas"]
 
-    def __init__(self, length = 1000.0, step_length = 0.1, wavelength = 1.55e-6, **kwargs):
+    def __init__(self, length = 1000.0, step_length = 0.1, wavelength = 1.55e-6, h = 1.0, **kwargs):
         super(LargeCoreMMF, self).__init__(length, step_length, wavelength)
 
         # Default values
+        self.c = 3e8
+        self.h = h
         self.NA = 0.19
-        self.wavelength = 1.55e-6;
+        self.wavelength = wavelength
+        frequency = self.c / self.wavelength
+        self.frequency = frequency
         self.a = 25e-6;
         self.n0 = 1.444;
         self.Csk0 = 0.0878 * pow(self.n0, 3)
         self.delta = 8000;
         self.n_core = self.n0;
         self.DELTA = 0.5 * pow((self.NA / self.n0), 2);
-        self.sigma_kappa = 1.0
         self.sigma_theta = 1.0
         self.sigma_kappa = sqrt(0.36)
+        self.c = 3e8
+        self.h = 1.0
 
-        self.k0 = 2 * numpy.pi / wavelength
+        self.k0 = 2 * numpy.pi*frequency / self.c
+        self.K1 = 2 * numpy.pi*(frequency+self.h) / self.c
         self.w = sqrt(sqrt(2) * self.a / (self.k0 * self.n0 * sqrt(self.DELTA)));
-
+        self.w1=sqrt(sqrt(2) * self.a / (self.K1 * self.n0 * sqrt(self.DELTA)));
+        self.K2 = 2 * numpy.pi*(frequency-self.h) / self.c
+        self.w2=sqrt(sqrt(2) * self.a / (self.K2 * self.n0 * sqrt(self.DELTA)));
         self.EXTENTS = 30e-6
         self.STEP = 0.5e-6
 
@@ -299,7 +307,7 @@ class LargeCoreMMF(Fiber):
 
         self.populate_modes()
 
-    def calculate_beta(self, p, q):
+    def calculate_beta(self, p, q, frequency_offset=0.0):
         """
         Calculates the beta values as a function of the wavelength.
         """
@@ -308,7 +316,8 @@ class LargeCoreMMF(Fiber):
         n0xy = lambda kappa : (n0x(kappa), 2 * self.n0 - n0x(kappa));
 
         alpha = 2.0
-        V = lambda L: 2 * numpy.pi / L * self.a * self.n0 * sqrt(2.0 * self.DELTA)
+        L_offset = lambda L : L * self.c / (self.c + frequency_offset * L)
+        V = lambda L: 2 * numpy.pi / L_offset(L) * self.a * self.n0 * sqrt(2.0 * self.DELTA)
         b_tilde = lambda L : pow(gamma(1.0 / alpha + 0.5) * (alpha + 2.0) * (p + q + 1) * sqrt(numpy.pi) * pow(V(L), 2.0 / alpha), alpha / (2.0 + alpha))
         return (lambda L, kappa : 1.0 / self.a * sqrt(pow(2 * numpy.pi / L * self.a * n0xy(kappa)[0], 2) - pow(b_tilde(L), 2)),
                 lambda L, kappa : 1.0 / self.a * sqrt(pow(2 * numpy.pi / L * self.a * n0xy(kappa)[1], 2) - pow(b_tilde(L), 2)))
@@ -323,6 +332,7 @@ class LargeCoreMMF(Fiber):
         for i in range(M):
             p, q = admissible_modes[i][0], admissible_modes[i][1]
             (self.betas[i], self.betas[M + i]) = self.calculate_beta(p, q)
+            (self.betas1[i], self.betas1[M + i]) = self.calculate_beta(p, q, self.h)
 
     def coupling_coefficients(self, kappa, L, MAX):
         admissible_modes = self.admissible_modes.tolist()
@@ -419,6 +429,7 @@ class LargeCoreMMF(Fiber):
         n_sections = int(self.length / self.step_length)
         M = len(self.admissible_modes)
         U = numpy.eye(2*M, 2*M)
+        U_first_difference = numpy.zeros(shape=(2*M,2*M))
         if kappa_vals == None:
             kappa_vals = numpy.abs(self.sigma_kappa * numpy.random.randn(n_sections))
         if theta_vals == None:
@@ -432,15 +443,26 @@ class LargeCoreMMF(Fiber):
             theta = theta_vals[section]
 
             betas = numpy.array([b(L, kappa) for b in self.betas])
+            betas1 = numpy.array([b(L, kappa) for b in self.betas1])
             Gamma_x = 1j * numpy.diag(betas[:M])
             Gamma_y = 1j * numpy.diag(betas[M:])
             C = self.coupling_coefficients(L, kappa, self.MAX)
+            Gamma_x1 = 1j * numpy.diag(betas1[:M])
+            Gamma_y1 = 1j * numpy.diag(betas1[M:])
+            C1 = self.coupling_coefficients(L+self.h, kappa, self.MAX)
             uiprop = self.uiprop(Gamma_x, Gamma_y, C, self.step_length, M)
+            uiprop_first = (self.uiprop(Gamma_x1, Gamma_y1, C1, self.step_length, M)-self.uiprop(Gamma_x, Gamma_y, C, self.step_length, M))/self.h / 2 * numpy.pi
             Ri = self.generate_rotation_matrix(theta)
-            Mi = self.generate_projection_matrix(theta)
-            U = numpy.dot(uiprop, U)
-            U = numpy.dot(numpy.dot(Mi, Ri), U)
-        return U
+            if (section % 2 != 0 and section < 5):
+                import propagationmatrix
+                Mi = propagationmatrix.lossy_propagation(section)
+            else:
+                Mi = self.generate_projection_matrix(theta)
+            U_section = numpy.mat(Mi)*numpy.mat(Ri)*numpy.mat(uiprop)
+            U_section_first= numpy.mat(Mi)*numpy.mat(Ri)*numpy.mat(uiprop_first)
+            U_first_difference=numpy.mat(U_section)*numpy.mat(U_first_difference) + numpy.mat(U_section_first)*numpy.mat(U)
+            U = numpy.dot(U_section, U)
+        return U, U_first_difference
 
     def calculate_mimo_matrix(self, L):
         """
@@ -468,6 +490,7 @@ class LargeCoreMMF(Fiber):
         self.admissible_modes = numpy.array(self.admissible_modes)
         admissible_modes = self.admissible_modes
         M = len(admissible_modes)
+        self.betas1 = [None] * (2*M)
         self.betas = [None] * (2*M)
         self.set_beta_values()
 
