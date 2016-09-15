@@ -454,8 +454,9 @@ class LargeCoreMMF(Fiber):
             uiprop_first = (self.uiprop(Gamma_x1, Gamma_y1, C1, self.step_length, M)-self.uiprop(Gamma_x, Gamma_y, C, self.step_length, M))/self.h / 2 * numpy.pi
             Ri = self.generate_rotation_matrix(theta)
             if (section % 2 != 0 and section < 5):
+                print self.admissible_modes
                 import propagationmatrix
-                Mi = propagationmatrix.lossy_propagation(section)
+                Mi = propagationmatrix.lossy_propagation(self, section, 0.0)
             else:
                 Mi = self.generate_projection_matrix(theta)
             U_section = numpy.mat(Mi)*numpy.mat(Ri)*numpy.mat(uiprop)
@@ -501,6 +502,8 @@ class LargeCoreMMF(Fiber):
         y = numpy.arange(-EXTENTS, EXTENTS, STEP)
         [XX, YY] = numpy.meshgrid(x, y)
         self.modes = GHModes(w, XX, YY)
+        self.XX = XX
+        self.YY = YY
 
     def connect_transmitter(self, t_array):
         self.transmit_matrix = t_array.overlap_matrix(self)
