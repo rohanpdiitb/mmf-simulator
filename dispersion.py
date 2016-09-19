@@ -19,7 +19,7 @@ for j in range(10):
         kappa_vals = numpy.abs(sigma_kappa[l]*Kappa_list)
         theta_vals = sigma_theta*theta_list
         t = numpy.arange(0, 1.01e10, 1e8)
-        U01,U01_d = First_order_differentiation.first_difference(omega=0,length=10,step_length=1,kappa1= kappa_vals,theta1= theta_vals,diameter=diameter,n_section=n_sections)
+        U01,U01_d = First_order_differentiation.first_difference(omega=0,length=length,step_length=step_length,kappa1= kappa_vals,theta1= theta_vals,diameter=diameter,n_section=n_sections)
         U01=numpy.mat(U01)
         U01_d = numpy.mat(U01_d)
         F1 = 1.0j*numpy.dot(U01.H,U01_d)
@@ -38,7 +38,7 @@ for j in range(10):
         for Omega in t:
             print Omega
             U_F_imp = calculate_mag_resp(Omega,U01 * expm(-1.0j * Omega * F1), P1, Q1)
-            U11,U11_d = First_order_differentiation.first_difference(omega=Omega,length=10,step_length=1,kappa1= kappa_vals,theta1= theta_vals,diameter=diameter,n_section=n_sections)
+            U11,U11_d = First_order_differentiation.first_difference(omega=Omega,length=length,step_length=step_length,kappa1= kappa_vals,theta1= theta_vals,diameter=diameter,n_section=n_sections)
             U11 = numpy.mat(U11)
             U_T_imp = calculate_mag_resp(Omega, U11, P1, Q1)
             E.append(20*log10(U_F_imp[0,0]))
