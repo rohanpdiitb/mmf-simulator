@@ -11,7 +11,7 @@ def first_difference (omega,length,step_length,kappa1,theta1,diameter,n_section)
         test_fiber=fiber.LargeCoreMMF(length=length,step_length=step_length,a= diameter)
         U, uiprop = test_fiber.calculate_matrix(L= c/(omega+f), kappa_vals = kappa1, theta_vals= theta1)
         U1, uiprop1 = test_fiber.calculate_matrix(L=c/(omega+f+1), kappa_vals= kappa1,theta_vals = theta1)
-        uiprop_first = (uiprop-uiprop1 / 2 * numpy.pi)
+        uiprop_first = (uiprop-uiprop1)/1.0/ 2 * numpy.pi
         theta = theta1[section]
         Mi = test_fiber.generate_projection_matrix(theta)
         Ri = test_fiber.generate_rotation_matrix(theta)
