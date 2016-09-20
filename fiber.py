@@ -278,6 +278,8 @@ class LargeCoreMMF(Fiber):
 
         self.EXTENTS = 30e-6
         self.STEP = 0.5e-6
+        self.c=3e8
+        self.h=1.0 # offset for deferentiation of propagation matrix
 
         # Populate values based on kwargs
         for i in self.fiber_attributes:
@@ -419,6 +421,7 @@ class LargeCoreMMF(Fiber):
         n_sections = int(self.length / self.step_length)
         M = len(self.admissible_modes)
         U = numpy.eye(2*M, 2*M)
+        U_first_difference = numpy.zeros(shape=(2*M,2*M))
         if kappa_vals == None:
             kappa_vals = numpy.abs(self.sigma_kappa * numpy.random.randn(n_sections))
         if theta_vals == None:
@@ -432,15 +435,27 @@ class LargeCoreMMF(Fiber):
             theta = theta_vals[section]
 
             betas = numpy.array([b(L, kappa) for b in self.betas])
+            betas_offset=numpy.array([b(self.c/(self.c/L+self.h),kappa) for b in self.betas])
             Gamma_x = 1j * numpy.diag(betas[:M])
             Gamma_y = 1j * numpy.diag(betas[M:])
+            """ Evaluation of first order differentiation of
+            propagation matrix using numerical method and
+            recursive prosess"""
+            Gamma_x_offset = 1j*numpy.diag(betas_offset[:M])
+            Gamma_y_offset = 1j*numpy.diag(betas_offset[M:])
             C = self.coupling_coefficients(L, kappa, self.MAX)
+            C_offset = self.coupling_coefficients(self.c/(self.c/L+self.h),kappa,self.MAX)
             uiprop = self.uiprop(Gamma_x, Gamma_y, C, self.step_length, M)
+            uiprop_offset = self.uiprop(Gamma_x_offset,Gamma_y_offset,C_offset,self.step_length,M)
+            uiprop_first = (uiprop_offset-uiprop)/self.h/2*numpy.pi
             Ri = self.generate_rotation_matrix(theta)
             Mi = self.generate_projection_matrix(theta)
+            U_section = numpy.mat(Mi)*numpy.mat(Ri)*numpy.mat(uiprop)
+            U_section_first= numpy.mat(Mi)*numpy.mat(Ri)*numpy.mat(uiprop_first)
+            U_first_difference=numpy.mat(U_section)*numpy.mat(U_first_difference) + numpy.mat(U_section_first)*numpy.mat(U)
             U = numpy.dot(uiprop, U)
             U = numpy.dot(numpy.dot(Mi, Ri), U)
-        return U, uiprop
+        return U,U_first_difference
 
     def calculate_mimo_matrix(self, L):
         """

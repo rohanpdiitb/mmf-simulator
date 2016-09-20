@@ -1,7 +1,6 @@
 import fiber
-import propagationmatrix
 import numpy
-length=1000.0
+length=10.0
 step_length=1.0
 n_sections=int(length / step_length)
 #print n_section
@@ -14,6 +13,8 @@ kappa_vals = numpy.abs(test_fiber.sigma_kappa*Kappa_list)
 theta_list = numpy.random.randn(n_sections)
 theta_vals = test_fiber.sigma_theta*theta_list
 L=1.55e-6
-U01 = test_fiber.calculate_matrix(L, kappa_vals, theta_vals)
+U01,U01_d = test_fiber.calculate_matrix(L=L, kappa_vals=kappa_vals, theta_vals=theta_vals)
 print U01
+
+
 
